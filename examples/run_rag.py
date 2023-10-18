@@ -5,6 +5,7 @@
 #     "facebook/dpr-ctx_encoder-single-nq-base", dataset="wiki_dpr", index_name="compressed"
 # )
 
+import torch
 # >> >  # To load your own indexed dataset built with the datasets library. More info on how to build the indexed dataset in examples/rag/use_own_knowledge_dataset.py
 # >> > from transformers import RagRetriever
 #
@@ -34,7 +35,6 @@
 #
 # >> > retriever = RagRetriever.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base", index_name="legacy")
 from transformers import RagTokenizer, RagRetriever, RagTokenForGeneration
-import torch
 
 tokenizer = RagTokenizer.from_pretrained("facebook/rag-token-nq")
 retriever = RagRetriever.from_pretrained(
