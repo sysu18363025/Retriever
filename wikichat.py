@@ -1,6 +1,34 @@
 import torch
 from transformers import AutoTokenizer, AutoModel
 from datetime import datetime
+from colbert.infra import Run, RunConfig, ColBERTConfig
+from colbert.data import Queries
+from colbert import Searcher
+import pandas as pd
+import json
+from tqdm import tqdm
+
+#load data
+# queries = []
+# answers = []
+# dev = json.load(open('/data/huyuxuan/wikichat/ambigqa/dev_light.json'))
+# for i in tqdm(range(len(dev)), total=len(dev)):
+#     item = dev[i]
+#     query = f"{item['question']}"
+#     queries.append(query)
+#     for annotation in item["annotations"]:
+#         if annotation["type"]=="singleAnswer":
+#             print('single',[list(set(annotation["answer"]))])
+#             answers.append([list(set(annotation["answer"]))])
+#         else:
+#             print('multi',[list(set(pair["answer"])) for pair in annotation["qaPairs"]])
+#             answers.append([list(set(pair["answer"])) for pair in annotation["qaPairs"]])
+#     #answer = f"{item['annotations']}"
+#     #answers.append(answer)
+# query_0 = queries[0]
+# #answer_0 = answers[0]
+# print(query_0,answer_0)
+# data = query_0
 data = "Can you tell me about the 2023 Australian Open Men's singles final?"
 tokenizer = AutoTokenizer.from_pretrained("/data/huyuxuan/chatglm", trust_remote_code=True)
 model = AutoModel.from_pretrained("/data/huyuxuan/chatglm", trust_remote_code=True).half().cuda()
@@ -37,12 +65,23 @@ query_prompt = ("You are chatting with a user . Use Google search to form a resp
     "[ Search needed ?"
 )
 query_prompt = query_prompt.format(today=datetime.today().date(), new_user_utterance=data)
-print(outputs)
 response, history = model.chat(tokenizer, query_prompt, history=[])
 print(response)
-
 ########retriever#######
+# if response[:3]=="Yes":
+#     data = [[1, response]]
+#     df = pd.DataFrame(data)
+#     df.to_csv('queries.tsv', sep='\t', index=False)
 
+# with Run().context(RunConfig(nranks=1, experiment="msmarco")):
+
+#     config = ColBERTConfig(
+#         root="/home/huyuxuan/WikiChat/ColBERT",
+#     )
+#     searcher = Searcher(index="msmarco.nbits=2", config=config)
+#     queries = Queries("queries.tsv")
+#     ranking = searcher.search_all(queries, k=100)
+#     ranking.save("msmarco.nbits=2.ranking.tsv")
 
 #stage2:summarize and filter
 # summarize_fileter_prompt = (
