@@ -7,8 +7,45 @@ from colbert import Searcher
 import pandas as pd
 import json
 from tqdm import tqdm
+from typing import Dict, List, Callable, Tuple, Union, Callable
+from datasets import Dataset, concatenate_datasets, load_from_disk
+#load data asqa
+def load_data(json_file: str = None, split: str = 'dev'):
+    data = json.load(open(json_file))[split]
+    dataset = []
+    num_hasctx = 0
+    for key, example in data.items():
+        qid = key
+        question = example['ambiguous_question']
+        sub_questions: List[str] = []
+        answers: List[str] = []
+        title2content: Dict[str, str] = {}
+        for ann in example['annotations']:
+            ans = ann['long_answer'].strip()
+            answers.append(ans)
+            for know in ann['knowledge']:
+                title2content[know['wikipage']] = know['content']
+        for qa in example['qa_pairs']:
+            sub_questions.append(qa['question'].strip())
+            if qa['wikipage'] is None:
+                continue
+            title2content[qa['wikipage']] = qa['context']
+        assert len(answers) >= 1
+        assert len(sub_questions) >= 1
+        answers = sorted(answers, key=lambda x: -len(x))  # sort based on length
+        ctxs: List[Tuple[str, str]] = list(title2content.items())  # could be empty
+        num_hasctx += int(len(ctxs) > 0)
 
-#load data
+        dataset.append({
+            'qid': qid,
+            'question': question,
+            'sub_questions': sub_questions,
+            'answer': answers[0],
+            'answers': answers,
+            'ctxs': ctxs,
+        })
+    return Dataset.from_list(dataset)
+#load data ambigqa
 # queries = []
 # answers = []
 # dev = json.load(open('/data/huyuxuan/wikichat/ambigqa/dev_light.json'))
@@ -25,11 +62,13 @@ from tqdm import tqdm
 #             answers.append([list(set(pair["answer"])) for pair in annotation["qaPairs"]])
 #     #answer = f"{item['annotations']}"
 #     #answers.append(answer)
-# query_0 = queries[0]
-# #answer_0 = answers[0]
-# print(query_0,answer_0)
-# data = query_0
-data = "Can you tell me about the 2023 Australian Open Men's singles final?"
+
+
+#data = "Can you tell me about the 2023 Australian Open Men's singles final?"
+dataset = load_data('/data/huyuxuan/wikichat/dataset/ASQA.json','dev')
+for b in range(0, len(dataset), 1):
+    batch = dataset.select(range(b, min(b + 1, len(dataset))))
+    print(batch[0])
 tokenizer = AutoTokenizer.from_pretrained("/data/huyuxuan/chatglm", trust_remote_code=True)
 model = AutoModel.from_pretrained("/data/huyuxuan/chatglm", trust_remote_code=True).half().cuda()
 model = model.eval()
