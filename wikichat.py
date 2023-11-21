@@ -63,16 +63,7 @@ def load_data(json_file: str = None, split: str = 'dev'):
 #     #answer = f"{item['annotations']}"
 #     #answers.append(answer)
 
-
-#data = "Can you tell me about the 2023 Australian Open Men's singles final?"
-dataset = load_data('/data/huyuxuan/wikichat/dataset/ASQA.json','dev')
-for b in range(0, len(dataset), 1):
-    batch = dataset.select(range(b, min(b + 1, len(dataset))))
-    print(batch[0])
-tokenizer = AutoTokenizer.from_pretrained("/data/huyuxuan/chatglm", trust_remote_code=True)
-model = AutoModel.from_pretrained("/data/huyuxuan/chatglm", trust_remote_code=True).half().cuda()
-model = model.eval()
-#stage1:query
+#query prompt
 query_prompt = ("You are chatting with a user . Use Google search to form a response . You are both"
     "located in U.S." 
     "Today 's date is {today}.\n"
@@ -82,10 +73,11 @@ query_prompt = ("You are chatting with a user . Use Google search to form a resp
     "### Few - shot example 1 ### \n"
     "You : Do you want to talk about sports ?\n"
     "User : Sure ! Who is your favorite basketball player ?\n"
-    "[ Search needed ? Yes . You Google ' popular basketball players '. The year of the results is ' none '.]\n"
+    "[ Search needed ? Yes . You search ' popular basketball players '. The year of the results is ' none '.]\n\n"
+    "### Few - shot example 2 ### \n"
     "You : It has to be Lebron James .\n"
     "User : Did he play well in his last game ?\n"
-    "[ Search needed ? Yes . You Google ' how did Lebron James do in his most recent game '. The year of the results is ' recent '.]\n\n" 
+    "[ Search needed ? Yes . You search ' how did Lebron James do in his most recent game '. The year of the results is ' recent '.]\n\n" 
     #{ More few - shot examples #}   
     # {# The current dialogue #}
     # {% for dlg_turn in dlg %}
@@ -103,24 +95,39 @@ query_prompt = ("You are chatting with a user . Use Google search to form a resp
     "User : {new_user_utterance}"
     "[ Search needed ?"
 )
-query_prompt = query_prompt.format(today=datetime.today().date(), new_user_utterance=data)
-response, history = model.chat(tokenizer, query_prompt, history=[])
-print(response)
-########retriever#######
-# if response[:3]=="Yes":
-#     data = [[1, response]]
-#     df = pd.DataFrame(data)
-#     df.to_csv('queries.tsv', sep='\t', index=False)
 
-# with Run().context(RunConfig(nranks=1, experiment="msmarco")):
+tokenizer = AutoTokenizer.from_pretrained("/data/huyuxuan/chatglm", trust_remote_code=True)
+model = AutoModel.from_pretrained("/data/huyuxuan/chatglm", trust_remote_code=True).half().cuda()
+model = model.eval()
 
-#     config = ColBERTConfig(
-#         root="/home/huyuxuan/WikiChat/ColBERT",
-#     )
-#     searcher = Searcher(index="msmarco.nbits=2", config=config)
-#     queries = Queries("queries.tsv")
-#     ranking = searcher.search_all(queries, k=100)
-#     ranking.save("msmarco.nbits=2.ranking.tsv")
+#data = "Can you tell me about the 2023 Australian Open Men's singles final?"
+dataset = load_data('/data/huyuxuan/wikichat/dataset/ASQA.json','dev')
+batch_size = 1
+for b in range(0, len(dataset), batch_size):
+    #print(b)
+    batch = dataset.select(range(b, min(b + batch_size, len(dataset))))
+    #print(batch[0]['question'])
+
+    #stage1:query
+    query_prompt = query_prompt.format(today=datetime.today().date(), new_user_utterance=batch['question'])
+    query_response, history = model.chat(tokenizer, query_prompt, history=[])
+    print('query_response',query_response)
+
+    ########retriever#######
+    # if query_response[:3]=="Yes":
+    #     data = [[batch[''], query_response]]
+    #     df = pd.DataFrame(data)
+    #     df.to_csv('queries.tsv', sep='\t', index=False, header=False)
+
+    # with Run().context(RunConfig(nranks=1, experiment="msmarco")):
+
+    #     config = ColBERTConfig(
+    #         root="/home/huyuxuan/WikiChat/ColBERT",
+    #     )
+    #     searcher = Searcher(index="msmarco.nbits=2", config=config)
+    #     queries = Queries("queries.tsv")
+    #     ranking = searcher.search_all(queries, k=100)
+    #     ranking.save("msmarco.nbits=2.ranking.tsv")
 
 #stage2:summarize and filter
 # summarize_fileter_prompt = (
@@ -244,7 +251,7 @@ print(response)
 # response, history = model.chat(tokenizer, extract_prompt, history=history)
 # print(response)
 
-#stage 5
+#stage 5 verification
 # verification_prompt = (
 #     "The following is a conversation between a user and a chatbot . For each claim that"
 #     "the chatbot makes , you search the internet to obtain articles that would"
